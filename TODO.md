@@ -4,10 +4,10 @@ This file is used to keep track of all pending activities and tasks related to t
 
 ## Todo
 
-- [ ] Write **Getting started** to README.
-- [ ] Add **CONTRIBUTING.md**.
+- \[ \] Write **Getting started** to README.
+- \[ \] Add **CONTRIBUTING.md**.
 
 ## Done ✓
 
-- [x] Configure **pyproject.toml**.
-- [x] Add first **sample code**.
+- \[x\] Configure **pyproject.toml**.
+- \[x\] Add first **sample code**.

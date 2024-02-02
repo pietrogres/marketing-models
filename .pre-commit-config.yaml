@@ -1,0 +1,117 @@
+repos:
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v4.4.0
+  hooks:
+  - id: check-added-large-files
+    args:
+    - --maxkb=350
+  - id: detect-private-key
+  - id: check-yaml
+  - id: check-toml
+    exclude: cookiecutter/template/{{cookiecutter.project_slug}}/pyproject.toml
+  - id: check-vcs-permalinks
+  - id: check-case-conflict
+  - id: check-symlinks
+  - id: check-merge-conflict
+  - id: destroyed-symlinks
+  - id: fix-byte-order-marker
+  - id: mixed-line-ending
+  - id: name-tests-test
+    args:
+    - --django
+    exclude: .*/tests/helpers/.*
+  - id: no-commit-to-branch
+    args:
+    - --branch
+    - main
+- repo: https://github.com/hukkinj1/mdformat
+  rev: 0.7.16
+  hooks:
+  - id: mdformat
+    name: Format Markdown files
+- repo: https://github.com/ambv/black
+  rev: 23.1.0
+  hooks:
+  - id: black
+    language_version: python3.10
+    args:
+    - --line-length=110
+    - --config=projects/vegetables_classification/pyproject.toml
+    files: ^projects/vegetables_classification
+  - id: black
+    language_version: python3.10
+    args:
+    - --line-length=110
+    - --config=projects/life_expectancy/pyproject.toml
+    files: ^projects/life_expectancy
+  - id: black
+    language_version: python3.10
+    args:
+    - --line-length=110
+    - --config=libs/data/pyproject.toml
+    files: ^libs/data
+
+- repo: https://github.com/pycqa/isort
+  rev: 5.12.0
+  hooks:
+  - id: isort
+    name: isort (python)
+    args:
+    - --profile
+    - black
+    - --sp
+    - projects/life_expectancy/pyproject.toml
+    files: ^projects/life_expectancy
+  - id: isort
+    name: isort (python)
+    args:
+    - --profile
+    - black
+    - --sp
+    - projects/vegetables_classification/pyproject.toml
+    files: ^projects/vegetables_classification
+  - id: isort
+    name: isort (python)
+    args:
+    - --profile
+    - black
+    - --sp
+    - libs/data/pyproject.toml
+    files: ^libs/data
+- repo: https://github.com/pycqa/flake8
+  rev: 6.0.0
+  hooks:
+  - id: flake8
+    args:
+      # making isort line length compatible with repo (cfr pyproject.toml) and black
+    - --max-line-length=120
+    - --select=B,C,E,F,W,T4    # (cfr https://flake8.pycqa.org/en/latest/user/error-codes.html)
+    - --ignore=ANN101  # ANN101 checks type annotations which we do with mypy
+    - --ignore=BLK100  # BLK100 has different formatting rules than black library
+    additional_dependencies:
+    - flake8-annotations==3.0.0
+    - flake8-annotations-complexity==0.0.7
+    - pep8-naming==0.12.1
+    - flake8-simplify==0.18.1
+    - flake8-pytest-style==1.6.0
+    exclude: "(?x)^(\ncookiecutter/template/.*)$\n"
+- repo: https://github.com/tcort/markdown-link-check
+  rev: v3.10.3
+  hooks:
+  - id: markdown-link-check
+    exclude: "(?x)^(\n cookiecutter/template/{{cookiecutter.project_slug}}/README.md)$\n"
+- repo: https://github.com/macisamuele/language-formatters-pre-commit-hooks
+  rev: v2.6.0
+  hooks:
+  - id: pretty-format-yaml
+    args:
+    - --autofix
+- repo: local
+  hooks:
+  - id: jupyter-nb-clear-output
+    name: jupyter-nb-clear-output
+    files: \.ipynb$
+    stages:
+    - commit
+    language: system
+    entry: jupyter nbconvert --ClearOutputPreprocessor.enabled=True --ClearMetaDataPreprocessor.enabled=True --inplace

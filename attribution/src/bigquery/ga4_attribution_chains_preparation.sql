@@ -17,10 +17,10 @@ DECLARE conversion_period INT64 DEFAULT 30;
 DECLARE lookback_window INT64 DEFAULT 90;
 DECLARE last_day_of_previous_month DATE DEFAULT DATE_SUB(DATE_TRUNC(CURRENT_DATE(), MONTH), INTERVAL 1 DAY);
 
-CREATE VIEW `myproject.mydataset.attribution_chains_base` AS
+CREATE OR REPLACE TABLE `myproject.mydataset.attribution_chains_base` AS
 
 -- select all conversion within conversion_period
-, conversions AS (
+WITH conversions AS (
     SELECT DISTINCT
         session_id,
         cookie_id,

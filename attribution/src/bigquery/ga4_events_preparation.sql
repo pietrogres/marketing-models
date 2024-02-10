@@ -222,7 +222,7 @@ WITH mapping_automatic AS (
         WHEN medium IN ('referral', 'app', 'link')
         THEN 'Referral'
 
-        WHEN REGEXP_CONTAINS(source_medium, 'e[-_\s]?mail')
+        WHEN REGEXP_CONTAINS(source_medium, 'e[-_ ]?mail')
         THEN 'Email'
 
         WHEN medium = 'affiliate'

@@ -27,7 +27,7 @@ Here you can find some info about the **naming**.
 - Conversion: we considered as conversions online purchases made through website;
 - Channel: here we refer to channel as to the different types of digital ad interactions.
 
-**Perimeter**: we only consider digital conversions occurred after May 3rd 2023. This time interval has been chosen since before such date no data related to a web visit's source was collected by GA4.
+**Perimeter**: we only consider digital events occurred after January 1st 2023. This time interval has been chosen since before such date no data related to a web visit's source was collected.
 
 **Events data preparation** (script `ga4_events_preparation.sql`)\
 The aim of this script is to identify all valid channel interactions. This is done in the following steps:

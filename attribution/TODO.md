@@ -4,11 +4,11 @@ This file is used to keep track of all pending activities and tasks related to A
 
 ## Todo
 
-- [ ] Add **sample data**.
-- [ ] Add **attribution model** code.
-- [ ] Add **CONTRIBUTING.md**
+- \[ \] Add **sample data**.
+- \[ \] Add **attribution model** code.
+- \[ \] Add **CONTRIBUTING.md**
 
 ## Done ✓
 
-- [x] Add BigQuery touchpoints extraction code.
-- [x] Add **chains preparation** code.
+- \[x\] Add BigQuery touchpoints extraction code.
+- \[x\] Add **chains preparation** code.

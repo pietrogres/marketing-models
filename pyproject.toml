@@ -6,7 +6,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "marketing_models"
-version = "0.0.1"
+version = "0.1.1"
 description = "Marketing models approaches using Python and SQL"
 authors = [ "pietro greselin <p.greselin@gmail.com>" ]
 

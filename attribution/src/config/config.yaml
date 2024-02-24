@@ -1,0 +1,3 @@
+project: myproject
+dataset: mydataset
+attribution_input_table: attribution_chains_base

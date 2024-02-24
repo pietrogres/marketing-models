@@ -63,7 +63,7 @@ def main():
         logging.info('Execution step: data import')
         config = read_yaml(os.path.join(src_path, 'config', 'config.yaml'))
         query = f"""SELECT * FROM `{config['project']}.{config['dataset']}.{config['attribution_input_table']}`"""
-        
+
         events = read_bigquery(client, query)
         events['first_event_timestamp'] = pd.to_datetime(events['first_event_timestamp'])
         events['last_event_date'] = pd.to_datetime(events['last_event_timestamp']).apply(lambda x: x.date())
@@ -85,7 +85,7 @@ def main():
         logging.info('Chain creation - step 1 - chain creation')
         chains_df = chain_events_concatenation(events)
         logging.info(f'Considering {len(chains_df)} unique chains with {round(chains_df.chain.map(len).mean(), 1)} avg length and {chains_df.cookie_id.nunique()} unique customers')
-        
+
         # create conversion chains - step2
         # combine purchases and chains if purchase dates differ by a maximum of 3 days
         logging.info('Chain creation - step 2 - chain merge')
@@ -103,7 +103,7 @@ def main():
 
             preproc_chains_df = concat_chains_df.copy()
             preproc_chains_df = preproc_chains_df.drop(['chain'], axis=1).rename({'concat_chain': 'chain'}, axis=1)
-        
+
         else:
             preproc_chains_df = merged_chains_df.copy()
 
@@ -117,7 +117,7 @@ def main():
 
         logging.info('Execution step: chains analysis')
         channel_stats = compute_channel_stats(preproc_chains_df)
-        
+
         logging.info('Execution step: model')
         model_chains_df = preproc_chains_df.copy()
         model_chains_df['chain'] = model_chains_df['chain'].apply(lambda x: ' > '.join(x))
@@ -135,7 +135,6 @@ def main():
         writer.close()
 
         logging.info(f'Execution time: {dt.timedelta(seconds=time.time() - start_time)}')
-        
 
     except Exception as e:
         logging.error(e, exc_info=True)

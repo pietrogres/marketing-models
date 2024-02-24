@@ -68,25 +68,25 @@ def chain_events_concatenation(events_df: pd.DataFrame) -> pd.DataFrame:
         conv_chain = []
         conv_chain_detail = {}
         nr_rows = len(customer_df)
-        
+
         # reset index in order for index to range from 0 to nr_rows-1
         customer_df = customer_df.reset_index(drop=True)
-            
+
         for k in range(nr_rows):
             row = customer_df.loc[k]
             current_session_id = customer_df.loc[k, 'session_id']
             # keep track of the session id of the next event in time order
             next_session_id = customer_df.loc[k + 1, 'session_id'] if k < nr_rows - 1 else 'FINISH'
-            
+
             # add touchpoint to chain
             conv_chain.append(row['channel_group'])
-            
+
             # if this is the first event of the chain then set conversion chain first event as the event's first event timestamp
             if j == 0:
                 conv_chain_detail['first_event'] = row['first_event_timestamp'].date()
                 j += 1
 
-            # if the event corresponds to the last event of a converted session then add the chain to the customer's list of conversion chains 
+            # if the event corresponds to the last event of a converted session then add the chain to the customer's list of conversion chains
             if (row['f_purchased'] == 1 and current_session_id != next_session_id):
                 p_chain = conv_chain.copy()  # NOTA: se non viene copiata la chain allora modificandola negli step successivi viene modificata inplace anche nell'output
                 conv_chain_detail['customer_id'] = row['customer_id']
@@ -97,15 +97,15 @@ def chain_events_concatenation(events_df: pd.DataFrame) -> pd.DataFrame:
                 conv_chain_detail['purchase_value'] = row['session_revenue']
 
                 conv_chains[i] = conv_chain_detail
-                            
+
                 # reset chain
                 conv_chain = []  # comment if you want to keep tp corresponding to previous purchases, uncomment if not
                 conv_chain_detail = {}
-                
+
                 # update indexes
                 i += 1
                 j = 0
-                
+
     chains_df = pd.DataFrame(conv_chains.values())
     chains_df = chains_df[['customer_id', 'conversion_id', 'conversion_timestamp', 'chain', 'first_event', 'purchase_date', 'purchase_value']]
     assert events_df[events_df.f_purchased == 1].session_id.nunique() == len(chains_df) == chains_df.conversion_id.nunique(), 'ERROR! Found conversions with multiple assigned chains'
@@ -144,9 +144,9 @@ def chain_merge(chains_df: pd.DataFrame) -> pd.DataFrame:
     merged_chains_df['rank'] = None
     merged_chains_df = merged_chains_df.sort_values(['customer_id', 'conversion_timestamp'], ascending=(True, True))
     merged_chains_df = merged_chains_df.groupby('customer_id').apply(calculate_rank).reset_index(drop=True)
-    
+
     # aggregate chains
-    merged_chains_df = merged_chains_df.groupby(['customer_id','rank']).agg({'conversion_id':'last', 'conversion_timestamp':'last', 'first_event':'min', 'purchase_date':'max', 'purchase_value':'sum', 'chain':'sum'}).reset_index()
+    merged_chains_df = merged_chains_df.groupby(['customer_id', 'rank']).agg({'conversion_id': 'last', 'conversion_timestamp': 'last', 'first_event': 'min', 'purchase_date': 'max', 'purchase_value': 'sum', 'chain': 'sum'}).reset_index()
     assert len(merged_chains_df) == merged_chains_df.conversion_id.nunique(), 'ERROR! Found conversions with multiple assigned chains'
     return merged_chains_df
 
@@ -179,10 +179,10 @@ def chain_concatenation(chains_df: pd.DataFrame) -> pd.DataFrame:
             group.at[i, 'concat_chain'] = current_chain
 
         return group
-    
+
     concat_chains_df = chains_df.copy()
     concat_chains_df['concat_chain'] = None
-    concat_chains_df = concat_chains_df.sort_values(['customer_id','purchase_date'], ascending=(True, False))  # sort descending by purchase date
+    concat_chains_df = concat_chains_df.sort_values(['customer_id', 'purchase_date'], ascending=(True, False))  # sort descending by purchase date
     concat_chains_df = concat_chains_df.groupby('customer_id').apply(concatenate_events_within_range).reset_index(drop=True)
     assert len(concat_chains_df) == concat_chains_df.conversion_id.nunique(), 'ERROR! Found conversions with multiple assigned chains'
     return concat_chains_df
@@ -214,7 +214,7 @@ def compute_channel_stats(chains_df: pd.DataFrame) -> pd.DataFrame:
     channels_df['f_mono_touch'] = channels_df['chain_len'].apply(lambda x: 1 if x == 1 else 0)
     channels_df['first_touch_value'] = channels_df.apply(lambda x: x['purchase_value'] if x['first_channel'] == 1 else 0, axis=1)
     channels_df['last_touch_value'] = channels_df.apply(lambda x: x['purchase_value'] if x['last_channel'] == 1 else 0, axis=1)
-    
+
     channel_stats = channels_df.groupby('chain').agg(
         nr_appearances=('conversion_id', 'count'),
         nr_chains=('conversion_id', 'nunique'),

@@ -84,10 +84,10 @@ repos:
   - id: flake8
     args:
       # making isort line length compatible with repo (cfr pyproject.toml) and black
-    - --max-line-length=120
     - --select=B,C,E,F,W,T4    # (cfr https://flake8.pycqa.org/en/latest/user/error-codes.html)
     - --ignore=ANN101  # ANN101 checks type annotations which we do with mypy
     - --ignore=BLK100  # BLK100 has different formatting rules than black library
+    - --ignore=E501    # E501 checks line length
     additional_dependencies:
     - flake8-annotations==3.0.0
     - flake8-annotations-complexity==0.0.7

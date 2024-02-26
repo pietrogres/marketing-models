@@ -5,13 +5,15 @@ build-backend = "poetry.core.masonry.api"
 [tool]
 
 [tool.poetry]
-name = "marketing_models"
-version = "0.1.1"
-description = "Marketing models approaches using Python and SQL"
+name = "attribution"
+version = "0.0.1"
+description = "Attribution modelling code using Python and SQL"
 authors = [ "pietro greselin <p.greselin@gmail.com>" ]
 
 [tool.poetry.dependencies]
 python = "3.9.13"
+ChannelAttribution = "2.0.10"
+google-cloud-bigquery = ""
 openpyxl = "3.1.2"
 pandas = "2.0.3"
 pyarrow = "14.0.1"

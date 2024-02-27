@@ -6,7 +6,7 @@ import datetime as dt
 
 import pandas as pd
 from dateutil.relativedelta import relativedelta
-from ChannelAttribution import markov_model
+from ChannelAttribution import markov_model, heuristic_models
 from google.cloud import bigquery
 
 from functions import (
@@ -124,7 +124,12 @@ def main():
         model_chains_df = model_chains_df.groupby('chain').agg(nr_chains=('cookie_id', 'count'), total_revenue=('purchase_value', 'sum')).reset_index()
         model_chains_df['total_revenue'] = model_chains_df['total_revenue'].astype(float)
 
-        attribution_results = markov_model(Data=model_chains_df, var_path='chain', var_conv='nr_chains', var_value='total_revenue', sep='>').rename({'total_conversions': 'markov_volume', 'total_conversion_value': 'markov_value'}, axis=1)
+        # compute models
+        markov_attr = markov_model(Data=model_chains_df, var_path='chain', var_conv='nr_chains', var_value='total_revenue', sep='>').rename({'total_conversions': 'markov_volume', 'total_conversion_value': 'markov_value'}, axis=1)
+        heuristic_attr = heuristic_models(Data=model_chains_df, var_path='chain', var_conv='nr_chains', var_value='total_revenue')
+
+        # combine results
+        attribution_results = pd.merge(markov_attr, heuristic_attr, on='channel_name', how='outer')
 
         logging.info('Execution step: output')
         today = dt.date.today().strftime('%Y%m%d')

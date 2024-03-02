@@ -188,6 +188,42 @@ def chain_concatenation(chains_df: pd.DataFrame) -> pd.DataFrame:
     return concat_chains_df
 
 
+def compute_perimeter_recap(chains_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Compute and summarize various statistics and information about the input DataFrame 'chains_df'.
+    The 'chains_df' DataFrame is expected to have specific columns such as 'first_event', 'conversion_timestamp',
+    'customer_id', 'conversion_id', 'purchase_value', 'chain_len' for proper computation.
+
+    Parameters:
+        - chains_df (pd.DataFrame): Input DataFrame containing information about customer conversion chains.
+
+    Returns:
+        - pd.DataFrame: Summary DataFrame containing the information like perimeter start and end date, number and value of conversions, etc.
+    """
+    data = [
+        ['Events start date', chains_df.first_event.min().strftime('%Y-%m-%d')],
+        ['Events end date', chains_df.first_event.max().strftime('%Y-%m-%d')],
+        ['Conversions start date', chains_df.conversion_timestamp.min().date().strftime('%Y-%m-%d')],
+        ['Conversions end date', chains_df.conversion_timestamp.max().date().strftime('%Y-%m-%d')],
+        ['Nr customers', chains_df.customer_id.nunique()],
+        ['Nr conversions', chains_df.conversion_id.nunique()],
+        ['Conversions value', chains_df.purchase_value.sum()],
+        ['Mean conversions value', chains_df.purchase_value.mean()],
+        ['Median conversions value', chains_df.purchase_value.median()],
+        ['Mean chain len', round(chains_df.chain_len.mean(), 2)],
+        ['Median chain len', round(chains_df.chain_len.median(), 2)],
+        ['Multi-TP nr customers', chains_df[chains_df.chain_len > 1].customer_id.nunique()],
+        ['Multi-TP nr conversion', chains_df[chains_df.chain_len > 1].conversion_id.nunique()],
+        ['Multi-TP conversions value', chains_df[chains_df.chain_len > 1].purchase_value.sum()],
+        ['Multi-TP mean conversions value', chains_df[chains_df.chain_len > 1].purchase_value.mean()],
+        ['Multi-TP median conversions value', chains_df[chains_df.chain_len > 1].purchase_value.median()],
+        ['Multi-TP mean chain len', round(chains_df[chains_df.chain_len > 1].chain_len.mean(), 2)],
+        ['Multi-TP median chain len', round(chains_df[chains_df.chain_len > 1].chain_len.median(), 2)],
+        ['Run date', dt.date.today().strftime('%Y-%m-%d')]
+    ]
+    return pd.DataFrame(data, columns=['info', 'value'])
+
+
 def compute_channel_stats(chains_df: pd.DataFrame) -> pd.DataFrame:
     """
     Compute channel statistics based on multi-touch attribution information.

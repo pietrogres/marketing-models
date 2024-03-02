@@ -116,6 +116,7 @@ def main():
         preproc_chains_df.to_parquet(os.path.join(data_path, 'attribution_chains.parquet'))
 
         logging.info('Execution step: chains analysis')
+        perimeter_recap = compute_perimeter_recap(preproc_chains_df)
         channel_stats = compute_channel_stats(preproc_chains_df)
 
         logging.info('Execution step: model')
@@ -129,13 +130,14 @@ def main():
         heuristic_attr = heuristic_models(Data=model_chains_df, var_path='chain', var_conv='nr_chains', var_value='total_revenue')
 
         # combine results
-        attribution_results = pd.merge(markov_attr, heuristic_attr, on='channel_name', how='outer')
+        attribution_results = pd.merge(channel_stats, markov_attr, on='channel_name', how='outer')
+        attribution_results = pd.merge(attribution_results, heuristic_attr, on='channel_name', how='outer')
 
         logging.info('Execution step: output')
         today = dt.date.today().strftime('%Y%m%d')
         logging.info(f'Writing attribution results to {os.path.join(data_path, f"{today}_attribution_results.xlsx")}...')
         writer = pd.ExcelWriter(os.path.join(data_path, f'{today}_attribution_results.xlsx'))
-        channel_stats.to_excel(writer, sheet_name='Channel Stats', index=False)
+        perimeter_recap.to_excel(writer, sheet_name='Perimeter', index=False)
         attribution_results.to_excel(writer, sheet_name='Attribution', index=False)
         writer.close()
 

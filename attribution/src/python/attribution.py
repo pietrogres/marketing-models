@@ -10,29 +10,30 @@ from ChannelAttribution import markov_model, heuristic_models
 from google.cloud import bigquery
 
 from functions import (
+    attribution_parser,
     read_yaml,
-    read_bigquery,
+    read_locally,
     chain_events_concatenation,
     chain_merge,
     chain_concatenation,
+    compute_perimeter_recap,
     compute_channel_stats
 )
 
 
 # parse arguments
-parser = argparse.ArgumentParser(description='Attribution model for Google Analytics 4 digital conversion')
-parser.add_argument('--concat-chains', help='Whether to concat near conversions chains', type=bool, required=False, default=True)
-args = parser.parse_args()
+ARGS = attribution_parser()
+CONCAT_CHAINS = ARGS.concat_chains
+FORCE_RECOMPUTE = ARGS.force_recompute
 
-root_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-src_path = os.path.join(root_path, 'src')
-data_path = os.path.join(src_path, 'data')
-log_path = os.path.join(src_path, 'logs')
+# i/o paths
+ROOT_PATH = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+SRC_PATH = os.path.join(ROOT_PATH, 'src')
+DATA_PATH = os.path.join(SRC_PATH, 'data')
+LOGS_PATH = os.path.join(SRC_PATH, 'logs')
 
 # BigQuery key to read data
-key_path = os.path.join(root_path, 'sa-ml-attribution.json')
-
-CONCAT_CHAINS = args.concat_chains
+KEY_PATH = os.path.join(ROOT_PATH, 'sa-ml-attribution.json')
 
 
 def main():
@@ -40,7 +41,7 @@ def main():
     # configure logging
     logging_filename = f'{dt.datetime.today().strftime("%Y%m%d%H%M")}_ga4_attribution_model.log'
     logging.basicConfig(
-        filename=os.path.join(log_path, logging_filename),
+        filename=os.path.join(LOGS_PATH, logging_filename),
         level=logging.DEBUG,
         format='%(levelname)s %(asctime)s %(filename)s: %(funcName)s() %(lineno)d: \t%(message)s',
         datefmt='%Y-%m-%d %H:%M:%S',
@@ -55,16 +56,16 @@ def main():
     logging.info(f'{"C" if CONCAT_CHAINS else "NOT c"}oncatenating conversion chains if purchases are near to each other\n')
 
     # configure BigQuery client
-    client = bigquery.Client.from_service_account_json(key_path)
+    client = bigquery.Client.from_service_account_json(KEY_PATH)
 
     try:
         start_time = time.time()
 
         logging.info('Execution step: data import')
-        config = read_yaml(os.path.join(src_path, 'config', 'config.yaml'))
+        config = read_yaml(os.path.join(SRC_PATH, 'config', 'config.yaml'))
         query = f"""SELECT * FROM `{config['project']}.{config['dataset']}.{config['attribution_input_table']}`"""
 
-        events = read_bigquery(client, query)
+        events = read_locally(client, query, os.path.join(DATA_PATH, 'attribution_events.parquet'), force_read=FORCE_RECOMPUTE)
         events['first_event_timestamp'] = pd.to_datetime(events['first_event_timestamp'])
         events['last_event_date'] = pd.to_datetime(events['last_event_timestamp']).apply(lambda x: x.date())
         assert events[events.channel_group.isna()].session_id.nunique() == 0, 'ERROR! Found sessions with missing channel group'
@@ -73,7 +74,6 @@ def main():
         logging.info(f'Input data consists of {len(events)} rows, {events.session_id.nunique()} unique sessions, {events[events.f_converted == 1].session_id.nunique()} unique conversions, {events.cookie_id.nunique()} unique customers')
         logging.info(f'Input data events range from {events.first_event_timestamp.min().date().strftime("%d/%m/%Y")} to {events.last_event_timestamp.max().date().strftime("%d/%m/%Y")}')
         logging.info(f'Conversions events range from {events[events.f_converted == 1].event_timestamp.min().date().strftime("%d/%m/%Y")} to {events[events.f_converted == 1].event_timestamp.max().date().strftime("%d/%m/%Y")}')
-        events.to_parquet(os.path.join(data_path, 'attribution_events.parquet'))
 
         logging.info('Execution step: chains creation')
 
@@ -112,8 +112,8 @@ def main():
         logging.info(f'Considering {preproc_chains_df.conversion_id.nunique()} chains with {round(preproc_chains_df.chain.map(len).mean(), 1)} avg length, {preproc_chains_df.cookie_id.nunique()} unique customers')
         logging.info(f'  {preproc_chains_df[preproc_chains_df.chain_len == 1].conversion_id.nunique()} mono-touchpoint chains ({round(preproc_chains_df[preproc_chains_df.chain_len == 1].conversion_id.nunique() * 100 / preproc_chains_df.conversion_id.nunique(), 2)}%)')
 
-        logging.info(f'Writing preprocessed chains to {os.path.join(data_path, "preproc_chains.parquet")}...')
-        preproc_chains_df.to_parquet(os.path.join(data_path, 'attribution_chains.parquet'))
+        logging.info(f'Writing preprocessed chains to {os.path.join(DATA_PATH, "preproc_chains.parquet")}...')
+        preproc_chains_df.to_parquet(os.path.join(DATA_PATH, 'attribution_chains.parquet'))
 
         logging.info('Execution step: chains analysis')
         perimeter_recap = compute_perimeter_recap(preproc_chains_df)
@@ -135,8 +135,8 @@ def main():
 
         logging.info('Execution step: output')
         today = dt.date.today().strftime('%Y%m%d')
-        logging.info(f'Writing attribution results to {os.path.join(data_path, f"{today}_attribution_results.xlsx")}...')
-        writer = pd.ExcelWriter(os.path.join(data_path, f'{today}_attribution_results.xlsx'))
+        logging.info(f'Writing attribution results to {os.path.join(DATA_PATH, f"{today}_attribution_results.xlsx")}...')
+        writer = pd.ExcelWriter(os.path.join(DATA_PATH, f'{today}_attribution_results.xlsx'))
         perimeter_recap.to_excel(writer, sheet_name='Perimeter', index=False)
         attribution_results.to_excel(writer, sheet_name='Attribution', index=False)
         writer.close()

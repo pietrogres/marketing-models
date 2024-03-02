@@ -1,4 +1,7 @@
+import os
 import yaml
+import argparse
+import datetime as dt
 
 import pandas as pd
 from google.cloud import bigquery
@@ -6,6 +9,19 @@ from google.cloud import bigquery
 
 MERGE_PURCH_DAYS_TH = 3
 CHAIN_CONCAT_DAYS_TH = 10
+
+
+def attribution_parser() -> argparse.Namespace:
+    """
+    Parse command-line arguments for the Attribution model for Google Analytics 4 digital conversion.
+
+    Returns:
+        - argparse.Namespace: An object containing parsed command-line arguments.
+    """
+    parser = argparse.ArgumentParser(description='Attribution model for Google Analytics 4 digital conversion')
+    parser.add_argument('--concat-chains', help='Whether to concat near conversions chains', type=bool, required=False, default=True)
+    parser.add_argument('--force-recompute', help='Whether to force recomputation of data from BigQuery', action='store_true')
+    return parser.parse_args()
 
 
 def read_yaml(path: str) -> dict:
@@ -40,6 +56,27 @@ def read_bigquery(client: bigquery.Client, query: str) -> pd.DataFrame:
     df = pd.DataFrame().from_records([dict(row) for row in rows])
     df.columns = ['_'.join(c.lower().split()) for c in df.columns]
     return df
+
+
+def read_locally(client: bigquery.Client, query: str, output_path: str, force_read: bool) -> pd.DataFrame:
+    """
+    Read data from BigQuery and store it locally in Parquet format.
+
+    Args:
+        client (google.cloud.bigquery.Client): The BigQuery client.
+        query (str): The SQL query to execute in BigQuery.
+        output_path (str): The local path to store the Parquet file.
+        force_read (bool): Whether to force re-reading data from BigQuery even if the local file exists.
+
+    Returns:
+        pd.DataFrame: The DataFrame containing the data read from BigQuery or the locally stored Parquet file.
+    """
+
+    if force_read or not os.path.exists(output_path):
+        df = read_bigquery(client, query)
+        df.to_parquet(output_path)
+
+    return pd.read_parquet(output_path)
 
 
 def chain_events_concatenation(events_df: pd.DataFrame) -> pd.DataFrame:

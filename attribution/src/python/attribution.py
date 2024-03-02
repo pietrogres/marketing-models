@@ -1,7 +1,6 @@
 import os
 import time
 import logging
-import argparse
 import datetime as dt
 
 import pandas as pd

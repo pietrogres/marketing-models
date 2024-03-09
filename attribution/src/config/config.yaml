@@ -1,3 +1,4 @@
 project: myproject
 dataset: mydataset
 attribution_input_table: attribution_chains_base
+attribution_output_table: attribution_results

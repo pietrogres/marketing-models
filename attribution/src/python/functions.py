@@ -1,5 +1,6 @@
 import os
 import yaml
+import logging
 import argparse
 import datetime as dt
 
@@ -22,6 +23,31 @@ def attribution_parser() -> argparse.Namespace:
     parser.add_argument('--concat-chains', help='Whether to concat near conversions chains', type=bool, required=False, default=True)
     parser.add_argument('--force-recompute', help='Whether to force recomputation of data from BigQuery', action='store_true')
     return parser.parse_args()
+
+
+def configure_log(logfile: str, logfmt: str = '%(asctime)s %(levelname)s %(filename)s %(lineno)d: \t%(message)s'):
+    """
+    Configure the logging settings for both file and console handlers.
+
+    Parameters:
+        - logfile (str): Path to the log file.
+        - logfmt (str, optional): Format string for log messages.
+            Defaults to '%(asctime)s %(levelname)s %(filename)s %(lineno)d: \t%(message)s'.
+    """
+    logging.basicConfig(
+        filename=logfile,
+        level=logging.DEBUG,
+        format=logfmt,
+        datefmt='%Y-%m-%d %H:%M:%S',
+        filemode='w'
+    )
+
+    # create a StreamHandler for logging at console level
+    console = logging.StreamHandler()
+    console.setLevel(logging.INFO)
+    formatter = logging.Formatter(logfmt, datefmt='%Y-%m-%d %H:%M:%S')
+    console.setFormatter(formatter)
+    logging.getLogger('').addHandler(console)
 
 
 def read_yaml(path: str) -> dict:
@@ -302,7 +328,6 @@ def compute_channel_stats(chains_df: pd.DataFrame) -> pd.DataFrame:
         assisted_chains_value=('purchase_value', 'sum')
     ).reset_index()
     mean_chains_len = channels_df[['conversion_id', 'chain', 'chain_len']].drop_duplicates().groupby('chain').agg(mean_chain_len=('chain_len', 'mean')).reset_index()
-    # TODO: lunghezza mediana
 
     channel_stats = pd.merge(channel_stats, assist_stats, on='chain', how='outer')
     channel_stats = pd.merge(channel_stats, mean_chains_len, on='chain', how='outer').rename({'chain': 'channel_name'}, axis=1)
@@ -312,3 +337,31 @@ def compute_channel_stats(chains_df: pd.DataFrame) -> pd.DataFrame:
     channel_stats['first/last_touch'] = channel_stats['nr_first_touch_chains'] / channel_stats['nr_last_touch_chains']
 
     return channel_stats
+
+
+def write_table_to_bq(client: bigquery.Client, df: pd.DataFrame, table_id: str, write_disposition: str = 'WRITE_APPEND'):
+    """
+    Write a Pandas DataFrame to a BigQuery table.
+
+    Parameters:
+        - client (google.cloud.bigquery.Client): BigQuery client.
+        - df (pandas.core.frame.DataFrame): DataFrame to be written to BigQuery.
+        - table_id (str): ID of the BigQuery table in the format 'project.dataset.table'.
+        - write_disposition (str, optional): Write disposition for the job. Default is 'WRITE_APPEND'.
+            It can be either 'WRITE_APPEND' or 'WRITE_TRUNCATE', specifying whether to append or overwrite existing data.
+    """
+    
+    job_config = bigquery.LoadJobConfig(
+        write_disposition=write_disposition,
+        time_partitioning=bigquery.table.TimePartitioning(type_=bigquery.TimePartitioningType.DAY, field='_run_date')
+    )
+
+    # write output to BigQuery
+    write_action = 'Appending' if write_disposition == 'WRITE_APPEND' else 'Overwriting'
+    logging.info(f'\t{write_action} data to BigQuery table {table_id}')
+    job = client.load_table_from_dataframe(df, table_id, job_config=job_config)
+    job.result()
+
+    # inspect output
+    table = client.get_table(table_id)
+    logging.info(f'\tLoaded {table.num_rows} rows and {len(table.schema)} columns to {table_id}')

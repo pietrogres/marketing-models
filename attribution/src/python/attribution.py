@@ -10,13 +10,15 @@ from google.cloud import bigquery
 
 from functions import (
     attribution_parser,
+    configure_log,
     read_yaml,
     read_locally,
     chain_events_concatenation,
     chain_merge,
     chain_concatenation,
     compute_perimeter_recap,
-    compute_channel_stats
+    compute_channel_stats,
+    write_table_to_bq
 )
 
 
@@ -38,18 +40,7 @@ KEY_PATH = os.path.join(ROOT_PATH, 'sa-ml-attribution.json')
 def main():
 
     # configure logging
-    logging_filename = f'{dt.datetime.today().strftime("%Y%m%d%H%M")}_ga4_attribution_model.log'
-    logging.basicConfig(
-        filename=os.path.join(LOGS_PATH, logging_filename),
-        level=logging.DEBUG,
-        format='%(levelname)s %(asctime)s %(filename)s: %(funcName)s() %(lineno)d: \t%(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S',
-        filemode='w'
-    )
-    # to print logging also at console level
-    console = logging.StreamHandler()
-    console.setLevel(logging.INFO)
-    logging.getLogger('').addHandler(console)
+    configure_log(os.path.join(LOGS_PATH, f'attribution_log_{dt.datetime.now().strftime("%Y%m%d%H%M")}.log'))
 
     logging.info('Starting Attribution model')
     logging.info(f'{"C" if CONCAT_CHAINS else "NOT c"}oncatenating conversion chains if purchases are near to each other\n')
@@ -57,11 +48,13 @@ def main():
     # configure BigQuery client
     client = bigquery.Client.from_service_account_json(KEY_PATH)
 
+    # read config file
+    config = read_yaml(os.path.join(SRC_PATH, 'config', 'config.yaml'))
+
     try:
         start_time = time.time()
 
         logging.info('Execution step: data import')
-        config = read_yaml(os.path.join(SRC_PATH, 'config', 'config.yaml'))
         query = f"""SELECT * FROM `{config['project']}.{config['dataset']}.{config['attribution_input_table']}`"""
 
         events = read_locally(client, query, os.path.join(DATA_PATH, 'attribution_events.parquet'), force_read=FORCE_RECOMPUTE)
@@ -133,12 +126,18 @@ def main():
         attribution_results = pd.merge(attribution_results, heuristic_attr, on='channel_name', how='outer')
 
         logging.info('Execution step: output')
+        # write excel to local storage
         today = dt.date.today().strftime('%Y%m%d')
         logging.info(f'Writing attribution results to {os.path.join(DATA_PATH, f"{today}_attribution_results.xlsx")}...')
         writer = pd.ExcelWriter(os.path.join(DATA_PATH, f'{today}_attribution_results.xlsx'))
         perimeter_recap.to_excel(writer, sheet_name='Perimeter', index=False)
         attribution_results.to_excel(writer, sheet_name='Attribution', index=False)
         writer.close()
+
+        # write table to BigQuery
+        attribution_results['_run_date'] = dt.date.today()
+        attribution_table_id = f'{config['project']}.{config['dataset']}.{config['attribution_output_table']}`'
+        write_table_to_bq(attribution_results, attribution_table_id)
 
         logging.info(f'Execution time: {dt.timedelta(seconds=time.time() - start_time)}')
 

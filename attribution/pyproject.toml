@@ -6,7 +6,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "attribution"
-version = "0.0.1"
+version = "0.0.2"
 description = "Attribution modelling code using Python and SQL"
 authors = [ "pietro greselin <p.greselin@gmail.com>" ]
 

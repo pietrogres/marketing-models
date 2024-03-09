@@ -63,9 +63,9 @@ def main():
         assert events[events.channel_group.isna()].session_id.nunique() == 0, 'ERROR! Found sessions with missing channel group'
         assert events.groupby('session_id').agg(last_event_date=('last_event_date', 'nunique')).reset_index().last_event_date.max() == 1, 'ERROR! Found sessions with multiple last event dates'
         assert events.groupby('session_id').agg(f_converted=('f_converted', 'nunique')).reset_index().f_converted.max() == 1, 'ERROR! Found sessions with multiple conversion flags'
-        logging.info(f'Input data consists of {len(events)} rows, {events.session_id.nunique()} unique sessions, {events[events.f_converted == 1].session_id.nunique()} unique conversions, {events.cookie_id.nunique()} unique customers')
-        logging.info(f'Input data events range from {events.first_event_timestamp.min().date().strftime("%d/%m/%Y")} to {events.last_event_timestamp.max().date().strftime("%d/%m/%Y")}')
-        logging.info(f'Conversions events range from {events[events.f_converted == 1].event_timestamp.min().date().strftime("%d/%m/%Y")} to {events[events.f_converted == 1].event_timestamp.max().date().strftime("%d/%m/%Y")}')
+        logging.info(f'\tInput data consists of {len(events)} rows, {events.session_id.nunique()} unique sessions, {events[events.f_converted == 1].session_id.nunique()} unique conversions, {events.cookie_id.nunique()} unique customers')
+        logging.info(f'\tInput data events range from {events.first_event_timestamp.min().date().strftime("%d/%m/%Y")} to {events.last_event_timestamp.max().date().strftime("%d/%m/%Y")}')
+        logging.info(f'\tConversions events range from {events[events.f_converted == 1].event_timestamp.min().date().strftime("%d/%m/%Y")} to {events[events.f_converted == 1].event_timestamp.max().date().strftime("%d/%m/%Y")}')
 
         logging.info('Execution step: chains creation')
 
@@ -74,24 +74,24 @@ def main():
 
         # create conversion chains - step1
         # for every customer and every purchase create a list of touchpoint related to that purchase
-        logging.info('Chain creation - step 1 - chain creation')
+        logging.info('\tChain creation - step 1 - chain creation')
         chains_df = chain_events_concatenation(events)
-        logging.info(f'Considering {len(chains_df)} unique chains with {round(chains_df.chain.map(len).mean(), 1)} avg length and {chains_df.cookie_id.nunique()} unique customers')
+        logging.info(f'\t\tConsidering {len(chains_df)} unique chains with {chains_df.chain.map(len).mean(): .1f)} avg length and {chains_df.cookie_id.nunique()} unique customers')
 
         # create conversion chains - step2
         # combine purchases and chains if purchase dates differ by a maximum of 3 days
-        logging.info('Chain creation - step 2 - chain merge')
+        logging.info('\tChain creation - step 2 - chain merge')
         merged_chains_df = chain_merge(chains_df)
-        logging.info(f'{len(chains_df) - len(merged_chains_df)} chains have been merged ({(len(chains_df) - len(merged_chains_df)) * 100 / len(chains_df):.1f}%)')
-        logging.info(f'Resulting {len(merged_chains_df)} unique chains with {round(merged_chains_df.chain.map(len).mean(), 1)} avg length and {merged_chains_df.cookie_id.nunique()} unique customers')
+        logging.info(f'\t\t{len(chains_df) - len(merged_chains_df)} chains have been merged ({(len(chains_df) - len(merged_chains_df)) * 100 / len(chains_df): .1f}%)')
+        logging.info(f'\t\tResulting {len(merged_chains_df)} unique chains with {merged_chains_df.chain.map(len).mean(): .1f} avg length and {merged_chains_df.cookie_id.nunique()} unique customers')
 
         # create conversion chains - step3
         # concatenate chains if purchase dates occurr within 10 days
         # note, purchases are kept separate here, only chains are concatenated
         if CONCAT_CHAINS:
-            logging.info('Chain creation - step 3 - chain concatenation')
+            logging.info('\tChain creation - step 3 - chain concatenation')
             concat_chains_df = chain_concatenation(chains_df)
-            logging.info(f'{concat_chains_df.conversion_id.nunique()} resulting chains with {round(concat_chains_df.chain.map(len).mean(), 1)} raw avg length and {round(concat_chains_df.concat_chain.map(len).mean(), 1)} concat avg length, {concat_chains_df.cookie_id.nunique()} unique customers')
+            logging.info(f'\t\t{concat_chains_df.conversion_id.nunique()} resulting chains with {concat_chains_df.chain.map(len).mean(): .1f} raw avg length and {concat_chains_df.concat_chain.map(len).mean(): .1f} concat avg length, {concat_chains_df.cookie_id.nunique()} unique customers')
 
             preproc_chains_df = concat_chains_df.copy()
             preproc_chains_df = preproc_chains_df.drop(['chain'], axis=1).rename({'concat_chain': 'chain'}, axis=1)
@@ -101,10 +101,10 @@ def main():
 
         preproc_chains_df['chain_len'] = preproc_chains_df['chain'].map(len)
         preproc_chains_df['chain_duration'] = preproc_chains_df.apply(lambda x: relativedelta(x.purchase_date, x.first_event).days, axis=1)
-        logging.info(f'Considering {preproc_chains_df.conversion_id.nunique()} chains with {round(preproc_chains_df.chain.map(len).mean(), 1)} avg length, {preproc_chains_df.cookie_id.nunique()} unique customers')
-        logging.info(f'  {preproc_chains_df[preproc_chains_df.chain_len == 1].conversion_id.nunique()} mono-touchpoint chains ({round(preproc_chains_df[preproc_chains_df.chain_len == 1].conversion_id.nunique() * 100 / preproc_chains_df.conversion_id.nunique(), 2)}%)')
+        logging.info(f'\tConsidering {preproc_chains_df.conversion_id.nunique()} chains with {preproc_chains_df.chain.map(len).mean(): .1f} avg length, {preproc_chains_df.cookie_id.nunique()} unique customers')
+        logging.info(f'\t{preproc_chains_df[preproc_chains_df.chain_len == 1].conversion_id.nunique()} mono-touchpoint chains ({preproc_chains_df[preproc_chains_df.chain_len == 1].conversion_id.nunique() * 100 / preproc_chains_df.conversion_id.nunique(): .1f}%)')
 
-        logging.info(f'Writing preprocessed chains to {os.path.join(DATA_PATH, "preproc_chains.parquet")}...')
+        logging.info(f'\tWriting preprocessed chains to {os.path.join(DATA_PATH, "preproc_chains.parquet")}...')
         preproc_chains_df.to_parquet(os.path.join(DATA_PATH, 'attribution_chains.parquet'))
 
         logging.info('Execution step: chains analysis')
@@ -128,7 +128,7 @@ def main():
         logging.info('Execution step: output')
         # write excel to local storage
         today = dt.date.today().strftime('%Y%m%d')
-        logging.info(f'Writing attribution results to {os.path.join(DATA_PATH, f"{today}_attribution_results.xlsx")}...')
+        logging.info(f'\tWriting attribution results locally to {os.path.join(DATA_PATH, f"{today}_attribution_results.xlsx")}...')
         writer = pd.ExcelWriter(os.path.join(DATA_PATH, f'{today}_attribution_results.xlsx'))
         perimeter_recap.to_excel(writer, sheet_name='Perimeter', index=False)
         attribution_results.to_excel(writer, sheet_name='Attribution', index=False)
@@ -137,6 +137,7 @@ def main():
         # write table to BigQuery
         attribution_results['_run_date'] = dt.date.today()
         attribution_table_id = f'{config["project"]}.{config["dataset"]}.{config["attribution_output_table"]}`'
+        logging.info(f'\tWriting attribution results to BigQuery table {attribution_table_id}...')
         write_table_to_bq(attribution_results, attribution_table_id)
 
         logging.info(f'Execution time: {dt.timedelta(seconds=time.time() - start_time)}')

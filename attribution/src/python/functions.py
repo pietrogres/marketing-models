@@ -358,10 +358,10 @@ def write_table_to_bq(client: bigquery.Client, df: pd.DataFrame, table_id: str, 
 
     # write output to BigQuery
     write_action = 'Appending' if write_disposition == 'WRITE_APPEND' else 'Overwriting'
-    logging.info(f'\t{write_action} data to BigQuery table {table_id}')
+    logging.info(f'\t\t{write_action} data to BigQuery table {table_id}')
     job = client.load_table_from_dataframe(df, table_id, job_config=job_config)
     job.result()
 
     # inspect output
     table = client.get_table(table_id)
-    logging.info(f'\tLoaded {table.num_rows} rows and {len(table.schema)} columns to {table_id}')
+    logging.info(f'\t\tLoaded {table.num_rows} rows and {len(table.schema)} columns to {table_id}')

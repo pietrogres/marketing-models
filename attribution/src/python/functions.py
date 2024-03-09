@@ -1,4 +1,8 @@
+import os
 import yaml
+import logging
+import argparse
+import datetime as dt
 
 import pandas as pd
 from google.cloud import bigquery
@@ -6,6 +10,44 @@ from google.cloud import bigquery
 
 MERGE_PURCH_DAYS_TH = 3
 CHAIN_CONCAT_DAYS_TH = 10
+
+
+def attribution_parser() -> argparse.Namespace:
+    """
+    Parse command-line arguments for the Attribution model for Google Analytics 4 digital conversion.
+
+    Returns:
+        - argparse.Namespace: An object containing parsed command-line arguments.
+    """
+    parser = argparse.ArgumentParser(description='Attribution model for Google Analytics 4 digital conversion')
+    parser.add_argument('--concat-chains', help='Whether to concat near conversions chains', type=bool, required=False, default=True)
+    parser.add_argument('--force-recompute', help='Whether to force recomputation of data from BigQuery', action='store_true')
+    return parser.parse_args()
+
+
+def configure_log(logfile: str, logfmt: str = '%(asctime)s %(levelname)s %(filename)s %(lineno)d: \t%(message)s'):
+    """
+    Configure the logging settings for both file and console handlers.
+
+    Parameters:
+        - logfile (str): Path to the log file.
+        - logfmt (str, optional): Format string for log messages.
+            Defaults to '%(asctime)s %(levelname)s %(filename)s %(lineno)d: \t%(message)s'.
+    """
+    logging.basicConfig(
+        filename=logfile,
+        level=logging.DEBUG,
+        format=logfmt,
+        datefmt='%Y-%m-%d %H:%M:%S',
+        filemode='w'
+    )
+
+    # create a StreamHandler for logging at console level
+    console = logging.StreamHandler()
+    console.setLevel(logging.INFO)
+    formatter = logging.Formatter(logfmt, datefmt='%Y-%m-%d %H:%M:%S')
+    console.setFormatter(formatter)
+    logging.getLogger('').addHandler(console)
 
 
 def read_yaml(path: str) -> dict:
@@ -40,6 +82,27 @@ def read_bigquery(client: bigquery.Client, query: str) -> pd.DataFrame:
     df = pd.DataFrame().from_records([dict(row) for row in rows])
     df.columns = ['_'.join(c.lower().split()) for c in df.columns]
     return df
+
+
+def read_locally(client: bigquery.Client, query: str, output_path: str, force_read: bool) -> pd.DataFrame:
+    """
+    Read data from BigQuery and store it locally in Parquet format.
+
+    Args:
+        client (google.cloud.bigquery.Client): The BigQuery client.
+        query (str): The SQL query to execute in BigQuery.
+        output_path (str): The local path to store the Parquet file.
+        force_read (bool): Whether to force re-reading data from BigQuery even if the local file exists.
+
+    Returns:
+        pd.DataFrame: The DataFrame containing the data read from BigQuery or the locally stored Parquet file.
+    """
+
+    if force_read or not os.path.exists(output_path):
+        df = read_bigquery(client, query)
+        df.to_parquet(output_path)
+
+    return pd.read_parquet(output_path)
 
 
 def chain_events_concatenation(events_df: pd.DataFrame) -> pd.DataFrame:
@@ -188,6 +251,42 @@ def chain_concatenation(chains_df: pd.DataFrame) -> pd.DataFrame:
     return concat_chains_df
 
 
+def compute_perimeter_recap(chains_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Compute and summarize various statistics and information about the input DataFrame 'chains_df'.
+    The 'chains_df' DataFrame is expected to have specific columns such as 'first_event', 'conversion_timestamp',
+    'customer_id', 'conversion_id', 'purchase_value', 'chain_len' for proper computation.
+
+    Parameters:
+        - chains_df (pd.DataFrame): Input DataFrame containing information about customer conversion chains.
+
+    Returns:
+        - pd.DataFrame: Summary DataFrame containing the information like perimeter start and end date, number and value of conversions, etc.
+    """
+    data = [
+        ['Events start date', chains_df.first_event.min().strftime('%Y-%m-%d')],
+        ['Events end date', chains_df.first_event.max().strftime('%Y-%m-%d')],
+        ['Conversions start date', chains_df.conversion_timestamp.min().date().strftime('%Y-%m-%d')],
+        ['Conversions end date', chains_df.conversion_timestamp.max().date().strftime('%Y-%m-%d')],
+        ['Nr customers', chains_df.customer_id.nunique()],
+        ['Nr conversions', chains_df.conversion_id.nunique()],
+        ['Conversions value', chains_df.purchase_value.sum()],
+        ['Mean conversions value', chains_df.purchase_value.mean()],
+        ['Median conversions value', chains_df.purchase_value.median()],
+        ['Mean chain len', round(chains_df.chain_len.mean(), 2)],
+        ['Median chain len', round(chains_df.chain_len.median(), 2)],
+        ['Multi-TP nr customers', chains_df[chains_df.chain_len > 1].customer_id.nunique()],
+        ['Multi-TP nr conversion', chains_df[chains_df.chain_len > 1].conversion_id.nunique()],
+        ['Multi-TP conversions value', chains_df[chains_df.chain_len > 1].purchase_value.sum()],
+        ['Multi-TP mean conversions value', chains_df[chains_df.chain_len > 1].purchase_value.mean()],
+        ['Multi-TP median conversions value', chains_df[chains_df.chain_len > 1].purchase_value.median()],
+        ['Multi-TP mean chain len', round(chains_df[chains_df.chain_len > 1].chain_len.mean(), 2)],
+        ['Multi-TP median chain len', round(chains_df[chains_df.chain_len > 1].chain_len.median(), 2)],
+        ['Run date', dt.date.today().strftime('%Y-%m-%d')]
+    ]
+    return pd.DataFrame(data, columns=['info', 'value'])
+
+
 def compute_channel_stats(chains_df: pd.DataFrame) -> pd.DataFrame:
     """
     Compute channel statistics based on multi-touch attribution information.
@@ -229,7 +328,6 @@ def compute_channel_stats(chains_df: pd.DataFrame) -> pd.DataFrame:
         assisted_chains_value=('purchase_value', 'sum')
     ).reset_index()
     mean_chains_len = channels_df[['conversion_id', 'chain', 'chain_len']].drop_duplicates().groupby('chain').agg(mean_chain_len=('chain_len', 'mean')).reset_index()
-    # TODO: lunghezza mediana
 
     channel_stats = pd.merge(channel_stats, assist_stats, on='chain', how='outer')
     channel_stats = pd.merge(channel_stats, mean_chains_len, on='chain', how='outer').rename({'chain': 'channel_name'}, axis=1)
@@ -239,3 +337,31 @@ def compute_channel_stats(chains_df: pd.DataFrame) -> pd.DataFrame:
     channel_stats['first/last_touch'] = channel_stats['nr_first_touch_chains'] / channel_stats['nr_last_touch_chains']
 
     return channel_stats
+
+
+def write_table_to_bq(client: bigquery.Client, df: pd.DataFrame, table_id: str, write_disposition: str = 'WRITE_APPEND'):
+    """
+    Write a Pandas DataFrame to a BigQuery table.
+
+    Parameters:
+        - client (google.cloud.bigquery.Client): BigQuery client.
+        - df (pandas.core.frame.DataFrame): DataFrame to be written to BigQuery.
+        - table_id (str): ID of the BigQuery table in the format 'project.dataset.table'.
+        - write_disposition (str, optional): Write disposition for the job. Default is 'WRITE_APPEND'.
+            It can be either 'WRITE_APPEND' or 'WRITE_TRUNCATE', specifying whether to append or overwrite existing data.
+    """
+
+    job_config = bigquery.LoadJobConfig(
+        write_disposition=write_disposition,
+        time_partitioning=bigquery.table.TimePartitioning(type_=bigquery.TimePartitioningType.DAY, field='_run_date')
+    )
+
+    # write output to BigQuery
+    write_action = 'Appending' if write_disposition == 'WRITE_APPEND' else 'Overwriting'
+    logging.info(f'\t\t{write_action} data to BigQuery table {table_id}')
+    job = client.load_table_from_dataframe(df, table_id, job_config=job_config)
+    job.result()
+
+    # inspect output
+    table = client.get_table(table_id)
+    logging.info(f'\t\tLoaded {table.num_rows} rows and {len(table.schema)} columns to {table_id}')

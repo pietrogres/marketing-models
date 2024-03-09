@@ -350,7 +350,7 @@ def write_table_to_bq(client: bigquery.Client, df: pd.DataFrame, table_id: str, 
         - write_disposition (str, optional): Write disposition for the job. Default is 'WRITE_APPEND'.
             It can be either 'WRITE_APPEND' or 'WRITE_TRUNCATE', specifying whether to append or overwrite existing data.
     """
-    
+
     job_config = bigquery.LoadJobConfig(
         write_disposition=write_disposition,
         time_partitioning=bigquery.table.TimePartitioning(type_=bigquery.TimePartitioningType.DAY, field='_run_date')

@@ -136,7 +136,7 @@ def main():
 
         # write table to BigQuery
         attribution_results['_run_date'] = dt.date.today()
-        attribution_table_id = f'{config['project']}.{config['dataset']}.{config['attribution_output_table']}`'
+        attribution_table_id = f'{config["project"]}.{config["dataset"]}.{config["attribution_output_table"]}`'
         write_table_to_bq(attribution_results, attribution_table_id)
 
         logging.info(f'Execution time: {dt.timedelta(seconds=time.time() - start_time)}')

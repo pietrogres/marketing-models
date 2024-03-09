@@ -25,7 +25,7 @@ jobs:
         echo $CONDA/bin >> $GITHUB_PATH
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip setuptools six wheel
+        python -m pip install --upgrade pip setuptools six wheel pkg_resources
         pip install flake8 pre-commit pytest notebook==6.5.4
     - name: Test code syntax with flake8
       run: |

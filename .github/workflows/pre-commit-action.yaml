@@ -7,10 +7,8 @@ on:
     branches: [main, develop]
 
 jobs:
-  build:
+  vars:
     runs-on: ubuntu-latest
-    strategy:
-      max-parallel: 5
 
     steps:
 

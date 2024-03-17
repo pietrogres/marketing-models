@@ -3,23 +3,22 @@ requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool]
-
 [tool.poetry]
-name = "attribution"
-version = "0.0.2"
-description = "Attribution modelling code using Python and SQL"
+name = "marketing_mix_modelling"
+version = "0.0.1"
+description = "Marketing Mix Modeling code using Python and R"
 authors = [ "pietro greselin <p.greselin@gmail.com>" ]
 packages = [{include = "src"}]
 
 [tool.poetry.scripts]
-attribution = "src.attribution:main"
+data_preprocessing_report = "src.data_preprocessing_report:main"
 
 [tool.poetry.dependencies]
 python = "3.9.13"
-ChannelAttribution = "2.0.10"
-google-cloud-bigquery = ""
 openpyxl = "3.1.2"
 pandas = "2.0.3"
+seaborn = "0.12.2"
+XlsxWriter = "3.1.9"
 pyarrow = "14.0.1"
 fastparquet = "2023.10.1"
 

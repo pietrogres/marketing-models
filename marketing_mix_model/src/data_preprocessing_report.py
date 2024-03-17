@@ -1,5 +1,4 @@
 import os
-import re
 import logging
 import datetime as dt
 
@@ -34,14 +33,14 @@ def main() -> None:
 
     try:
 
-        logging.info(f'Execution step: Data import')
+        logging.info('Execution step: Data import')
         preproc_data = pd.read_csv(os.path.join(DATA_PATH, f'MMM_{COUNTRY}_input_data.csv'), sep=',')
         preproc_data['week_end_date'] = pd.to_datetime(preproc_data['week_end_date'], format='%d/%m/%Y')
         preproc_data = f.prepare_time_features(preproc_data, mmm_perimeter, years_map)
         preproc_data = preproc_data[preproc_data.year_rolling != 'oos']
 
         ch_recap_map = {}
-        logging.info(f'Execution step: Input channel recap')
+        logging.info('Execution step: Input channel recap')
         for ch, ch_config in country_config['date_preprocessing_report'].items():
             logging.info(f'\tComputing {ch} channel recap')
             ch_recap_map[ch] = f.compute_mmm_input_channel_recap(preproc_data, ch_config)
@@ -49,7 +48,7 @@ def main() -> None:
         out_date = dt.date.today().strftime('%Y%m%d')
         logging.info(f'Execution step: Writing output to {DATA_PATH}')
         f.write_format_excel(os.path.join(DATA_PATH, f'{out_date}_MMM_{COUNTRY}_input_channels_recap.xlsx'), ch_recap_map)
-                
+
     except Exception as e:
         logging.error(e, exc_info=True)
         exit(1)

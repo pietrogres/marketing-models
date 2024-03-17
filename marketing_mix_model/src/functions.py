@@ -1,6 +1,4 @@
-import os
 import re
-import math
 import json
 import logging
 import argparse
@@ -8,10 +6,7 @@ import datetime as dt
 
 import yaml
 import xlsxwriter
-import numpy as np
 import pandas as pd
-import seaborn as sns
-from matplotlib import pyplot as plt
 
 
 def mmm_parser() -> argparse.Namespace:
@@ -144,8 +139,8 @@ def compute_mmm_input_channel_recap(channels_df: pd.DataFrame, ch_config: dict):
     Returns:
         - pd.DataFrame: A DataFrame containing the recap of input channels for MMM analysis.
     """
-    
-    splits_map = {'grp':'grps', 'lea':'leads', 'imp':'impressions', 'cli':'clicks', 'app':'appointments', 'num':'number', 'inv':'cost'}
+
+    splits_map = {'grp': 'grps', 'lea': 'leads', 'imp': 'impressions', 'cli': 'clicks', 'app': 'appointments', 'num': 'number', 'inv': 'cost'}
     prefix = ch_config['prefix']
     subchannels_list = ch_config['subchannels']
     splits_list = ch_config['splits']
@@ -154,7 +149,7 @@ def compute_mmm_input_channel_recap(channels_df: pd.DataFrame, ch_config: dict):
 
     for subch in subchannels_list:
         subch_cols = [f'{prefix}_{subch}_{split}' for split in splits_list]
-        subch_cols_map = {col : splits_map[re.findall(r'.*\_(grp|lea|imp|cli|app|num|inv)', col)[0]] for col in subch_cols}
+        subch_cols_map = {col: splits_map[re.findall(r'.*\_(grp|lea|imp|cli|app|num|inv)', col)[0]] for col in subch_cols}
 
         subch_recap = channels_df[channels_df.year_rolling != 'oos'][['week_end_date', 'year_rolling'] + subch_cols].rename(subch_cols_map, axis=1)
         subch_recap['split'] = ' '.join(subch.upper().split('_'))
@@ -168,31 +163,31 @@ def compute_mmm_input_channel_recap(channels_df: pd.DataFrame, ch_config: dict):
     subch_cols = []
     cost_cols = []
     cost_yy_cols = []
-    
+
     # create year number column
     ch_recap['year_nr'] = ch_recap['year_rolling'].apply(lambda x: int(re.findall(r'\d+', x)[0]))
-    
+
     for col in splist_cols:
-        
+
         # compute cost per pressure columns
         if col != 'cost':
             # overall
             cost_col = f'cost_per_{re.sub(r"s$", "", col)}'
             ch_recap[cost_col] = ch_recap['cost'] / ch_recap[col]
             cost_cols += [cost_col]
-            
+
             # current year vs previous year
             ch_recap_prev_year = ch_recap.copy()
             ch_recap_prev_year['year_nr'] = ch_recap_prev_year['year_nr'] + 1
-            ch_recap = pd.merge(ch_recap, ch_recap_prev_year[['year_nr', 'split', cost_col]].rename({cost_col:f'{cost_col}_y/y'}, axis=1), on=['year_nr', 'split'], how='left')
+            ch_recap = pd.merge(ch_recap, ch_recap_prev_year[['year_nr', 'split', cost_col]].rename({cost_col: f'{cost_col}_y/y'}, axis=1), on=['year_nr', 'split'], how='left')
             ch_recap[f'{cost_col}_y/y'] = ch_recap[cost_col] / ch_recap[f'{cost_col}_y/y'] - 1
             cost_yy_cols += [f'{cost_col}_y/y']
-            
+
         # compute pressure % columns
-        ch_recap = pd.merge(ch_recap, ch_recap[ch_recap.split.str.contains('TOT ')][['year_rolling', col]].rename({col:f'{col}_perc'}, axis=1), on='year_rolling', how='left')
+        ch_recap = pd.merge(ch_recap, ch_recap[ch_recap.split.str.contains('TOT ')][['year_rolling', col]].rename({col: f'{col}_perc'}, axis=1), on='year_rolling', how='left')
         ch_recap[f'{col}_perc'] = ch_recap[col] / ch_recap[f'{col}_perc']
         subch_cols += [col, f'{col}_perc']
-    
+
     return ch_recap[['year_rolling', 'split'] + subch_cols + cost_cols + cost_yy_cols]
 
 
@@ -207,9 +202,9 @@ def write_format_excel(path, out_df_list, format_columns=False):
 
     def adapt_column_width(col):
         return max(
-                df[col].astype(str).map(len).max(),  # len of largest item
-                len(str(col))                        # len of column name/header
-            ) + 1                                    # adding a little extra space
+            df[col].astype(str).map(len).max(),  # len of largest item
+            len(str(col))                        # len of column name/header
+        ) + 1                                    # adding a little extra space
 
     def conditional_format_column_with_color_scale(df, column_name):
         column = df[column_name]
@@ -217,7 +212,7 @@ def write_format_excel(path, out_df_list, format_columns=False):
         max_value = max(column)
         pivot_value = (max_value + min_value) / 2
 
-        last_column = len(df.index)+1
+        last_column = len(df.index) + 1
         column_index = df.columns.get_loc(column_name)
         excel_column = xlsxwriter.utility.xl_col_to_name(column_index)
         column_to_format = f'{excel_column}2:{excel_column}{last_column}'
@@ -231,13 +226,12 @@ def write_format_excel(path, out_df_list, format_columns=False):
             'max_type': 'num',
             'max_value': max_value
         }
-        
-        sheet.conditional_format(column_to_format, color_format)
 
+        sheet.conditional_format(column_to_format, color_format)
 
     writer = pd.ExcelWriter(path)
     workbook = writer.book
-    
+
     for sheet_name, df in out_df_list.items():
 
         # write sheets
@@ -253,7 +247,7 @@ def write_format_excel(path, out_df_list, format_columns=False):
             # color column if it represent a percentage
             if format_columns and re.findall(r'\bperc\b|y/y$|\%$', col) != []:
                 conditional_format_column_with_color_scale(df, col)
-            
+
             sheet.set_column(f'{col_letter}:{col_letter}', width=adapt_column_width(col), cell_format=format_column(col))
 
     writer.close()

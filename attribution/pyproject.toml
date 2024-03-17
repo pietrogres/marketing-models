@@ -10,6 +10,9 @@ version = "0.0.2"
 description = "Attribution modelling code using Python and SQL"
 authors = [ "pietro greselin <p.greselin@gmail.com>" ]
 
+[tool.poetry.scripts]
+attribution = "src.attribution:main"
+
 [tool.poetry.dependencies]
 python = "3.9.13"
 ChannelAttribution = "2.0.10"

@@ -1,0 +1,46 @@
+country: IT
+
+mmm_perimeter:
+  start_date: 2021-01-04 00:00:00    # first 2021 Monday
+  end_date: 2023-12-31 00:00:00      # last 2023 Sunday
+
+years_map:
+  year1:
+    start_date: 2021-01-04 00:00:00
+    end_date: 2022-01-02 00:00:00
+  year2:
+    start_date: 2022-01-03 00:00:00
+    end_date: 2023-01-01 00:00:00
+  year3:
+    start_date: 2023-01-02 00:00:00
+    end_date: 2023-12-31 00:00:00
+
+# data preprocessing report
+# list here paid channels on which input recap will be produced
+# for every channel, key will be used as sheet name in the output, values must include prefix, subchannels and splits
+#  - prefix: it's the channel prefix used in column naming in preprocessed data
+#  - subchannels: it's the list of subchannels (total, channel, daypart, search, ...) of the given channel with the naming used in preprocessed data
+#  - splits: it's the list of availables splits (leads, grps, ...) of the given channel with the naming used in preprocessed data
+# NOTE: if possible, keys in this dictionary should be aligned with naming in the next one
+# NOTE: this dictionary is only used in data_preprocessing_report.py script and only refers to data preparation recap
+date_preprocessing_report:
+  Online:
+    prefix: onl
+    subchannels: [tot]
+    splits: [imp, inv]
+  Offline:
+    prefix: off_tv
+    subchannels: [con, unc, tot]
+    splits: [grp, inv]
+  Third Party:
+    prefix: mkt_tp
+    subchannels: [tot]
+    splits: [num, inv]
+  Direct Mail:
+    prefix: dm
+    subchannels: [tot]
+    splits: [num, inv]
+  Telemarketing:
+    prefix: tm
+    subchannels: [tot]
+    splits: [num, inv]
